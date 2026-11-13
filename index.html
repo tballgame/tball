@@ -1,1 +1,39 @@
-
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>賽乒乓｜團體循環賽</title>
+<style>
+:root{color-scheme:light;font:16px/1.55 system-ui,sans-serif;color:#17312e;background:#eef4f1}
+*{box-sizing:border-box}body{margin:0}header{background:#153d36;color:white;padding:1.5rem max(1rem,calc((100vw - 920px)/2))}
+main{max-width:952px;margin:auto;padding:1rem}h1,h2,h3,p{margin:.35rem 0 .8rem}small{color:#4d665f}
+section,details{background:white;padding:1rem;margin:0 0 .9rem;border-radius:.8rem;border:1px solid #cddcd5}
+summary{cursor:pointer;font-weight:700}form{margin:.6rem 0}label{display:block;margin:.45rem 0}
+input,select,textarea,button{font:inherit;padding:.45rem .65rem;border:1px solid #859e94;border-radius:.35rem;max-width:100%}
+textarea{width:100%;min-height:6rem}button{background:#176450;color:white;cursor:pointer}button.secondary{background:white;color:#17473b}
+.point{border-top:1px solid #dce5e1;padding:.8rem 0}.pill{background:#dceee6;border-radius:1rem;padding:.15rem .6rem;display:inline-block}
+.row{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}table{border-collapse:collapse;width:100%}td,th{padding:.4rem;text-align:left;border-bottom:1px solid #dce5e1}
+#status{color:#892c1d}#role{margin-left:.4rem}.version{background:#e5f3ec;color:#153d36}
+</style>
+<header><h1>賽乒乓 <span class="pill version">v0.2.1</span></h1><p>跨日期團體循環賽 · 本機試跑</p></header>
+<main>
+  <details>
+    <summary>本機測試工具</summary>
+    <p>此工具可模擬大會、隊長與選手的操作。資料只儲存在這個瀏覽器，請使用虛構資料。</p>
+    <label>模擬身分 <select id="role"></select></label>
+  </details>
+  <p id="status" role="alert"></p>
+  <div id="screen"></div>
+  <details id="changelog">
+    <summary>版本變更紀錄</summary>
+    <ul>
+      <li><strong>v0.2.1</strong>　新增頁面版本與變更紀錄，將模擬身分移入本機測試工具。</li>
+      <li><strong>v0.2.0</strong>　新增賽事公告、個人報名、指定隊長、組隊、退隊與回隊限制。</li>
+      <li><strong>v0.1.0</strong>　首次本機試跑，支援循環對戰、排陣、選手逐點約期和賽果確認。</li>
+    </ul>
+  </details>
+</main>
+<script src="model.js"></script>
+<script src="registration.js"></script>
+<script src="app.js"></script>
+</html>
