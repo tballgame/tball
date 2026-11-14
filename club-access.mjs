@@ -1,10 +1,8 @@
-import { firebaseConfig, legacyPilot } from './firebaseConfig.js';
+import { firebaseConfig } from './firebaseConfig.js';
 
 const headquarters = 'https://firestore.googleapis.com/v1/projects/superadmin-9cd4b/databases/(default)/documents';
-export const usesLegacyPilot = legacyPilot && firebaseConfig.projectId === 'tball-ef787';
 
-export async function clubAvailability(env, fetcher = fetch, projectId = firebaseConfig.projectId) {
-  if (usesLegacyPilot && projectId === firebaseConfig.projectId && env.TBALL_REQUIRE_HQ !== 'true') return null;
+export async function clubAvailability(fetcher = fetch, projectId = firebaseConfig.projectId) {
   if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId ?? '')) {
     return { status: 503, error: '球團尚未完成設定。' };
   }

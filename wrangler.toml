@@ -1,8 +1,3 @@
-name = "tball"
+name = "tball-template"
 pages_build_output_dir = "./pages-dist"
 compatibility_date = "2026-11-06"
-
-[[d1_databases]]
-binding = "TBALL_DB"
-database_name = "tball-registration"
-database_id = "42e03f26-e03b-41c1-91f7-f2fa8ca46312"

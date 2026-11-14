@@ -1,70 +1,74 @@
-import { normalizeCode, hash, prepareAccounts, sessionIdentity, createSession, deleteSession } from '../../session-auth.mjs';
-import { clubAvailability, usesLegacyPilot } from '../../club-access.mjs';
+import { clubAvailability } from '../../club-access.mjs';
+import { activeMember, openCatalog } from '../../firebase-store.mjs';
+import { authenticate, clearSession, normalizeCode, readSession, sessionCookie } from '../../firebase-auth.mjs';
+import { issueMemberReset, redeemMemberReset } from '../../member-reset.mjs';
 
-const reply = (body, status = 200, cookie) => {
-  const headers = { 'Cache-Control': 'no-store' };
-  if (cookie) headers['Set-Cookie'] = cookie;
-  return Response.json(body, { status, headers });
-};
-const duplicateCode = () => reply({
-  error: '此登入代號已被註冊，請改用另一個代號。若這是你的帳號，請直接按「登入」。'
-}, 409);
+const reply = (body, status = 200, cookie) => Response.json(body, { status,
+  headers: { 'Cache-Control': 'no-store', ...(cookie ? { 'Set-Cookie': cookie } : {}) } });
+const publicAccount = (member, code) => ({ uid: member.id, number: member.number, code });
+
+async function enroll(env, uid) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { state, save } = await openCatalog(env);
+    const existing = state.members.find(member => member.id === uid);
+    if (existing) return existing.removed ? null : existing;
+    const number = 'M' + String(state.members.length + 1).padStart(4, '0');
+    const member = { id: uid, number, name: '會員 ' + number };
+    state.members.push(member);
+    try {
+      await save();
+      return member;
+    } catch (error) {
+      if (error.status !== 409 || attempt === 2) throw error;
+    }
+  }
+}
 
 export async function onRequestPost({ request, env }) {
   if (request.headers.get('Origin') !== new URL(request.url).origin) return reply({ error: '請從本站登入。' }, 403);
-  if (!env.TBALL_DB || !env.TBALL_OWNER_UID) return reply({ error: '登入服務尚未設定。' }, 503);
   const body = await request.text();
   if (body.length > 2048) return reply({ error: '資料過長。' }, 413);
   let data;
   try { data = JSON.parse(body); } catch { return reply({ error: '無法讀取資料。' }, 400); }
-  const db = env.TBALL_DB;
+  if (data?.action === 'logout') return reply({}, 200, clearSession());
+  const unavailable = await clubAvailability();
+  if (unavailable) return reply({ error: unavailable.error }, unavailable.status);
+  if (!env.GOOGLE_SERVICE_ACCOUNT || !env.TBALL_SESSION_KEY) return reply({ error: '登入服務尚未設定。' }, 503);
   try {
-    if (data.action === 'logout') return reply({}, 200, await deleteSession(request, db));
-    const unavailable = await clubAvailability(env);
-    if (unavailable) return reply({ error: unavailable.error }, unavailable.status);
-    await prepareAccounts(db, env.TBALL_OWNER_UID, {
-      legacy: usesLegacyPilot, ownerHash: env.TBALL_OWNER_CODE_HASH
-    });
-    if (data.action === 'session') {
-      const actor = await sessionIdentity(request, db);
-      if (!actor) return reply({ user: null });
-      const row = await db.prepare('SELECT state FROM registration_state WHERE id=1').first();
-      const member = JSON.parse(row.state).members.find(member => member.id === actor.uid && !member.removed);
-      if (!member) return reply({ user: null }, 200, await deleteSession(request, db));
-      return reply({ user: { uid: member.id, number: member.number, code: actor.code } });
+    if (data?.action === 'issueMemberReset') {
+      const { token, cookie } = await issueMemberReset(request, env, data.memberId);
+      return reply({ token }, 200, cookie);
     }
-    const code = normalizeCode(data.code, data.action === 'login');
-    if (!code) return reply({ error: '登入代號可用中英文、數字及 . _ -。新代號須 6 至 40 字元。' }, 400);
-    const codeHash = await hash(code);
-    let account = await db.prepare('SELECT member_id FROM login_accounts WHERE code_hash=?').bind(codeHash).first();
-    if (data.action === 'signup') {
-      if (account) return duplicateCode();
-      const row = await db.prepare('SELECT state, revision FROM registration_state WHERE id=1').first();
-      const state = JSON.parse(row.state);
-      const id = crypto.randomUUID();
-      const number = 'M' + String(state.members.length + 1).padStart(4, '0');
-      state.members.push({ id, number, name: '會員 ' + number, loginHash: codeHash });
-      const results = await db.batch([
-        db.prepare('UPDATE registration_state SET state=?, revision=revision+1 WHERE id=1 AND revision=?')
-          .bind(JSON.stringify(state), row.revision),
-        db.prepare('INSERT INTO login_accounts (member_id, code_hash) SELECT ?, ? WHERE EXISTS ' +
-          "(SELECT 1 FROM registration_state, json_each(registration_state.state, '$.members') WHERE json_extract(value, '$.id')=?)")
-          .bind(id, codeHash, id)
-      ]);
-      if (!results[0].meta.changes) return reply({ error: '名冊剛被更新，請重試。' }, 409);
-      account = { member_id: id };
-    } else if (data.action !== 'login') {
-      return reply({ error: '未知的操作。' }, 400);
+    if (data?.action === 'redeemMemberReset') {
+      await redeemMemberReset(env, data.token, data.code);
+      return reply({ reset: true }, 200, clearSession());
     }
-    if (!account) return reply({ error: '登入失敗，請確認登入代號。' }, 401);
-    const row = await db.prepare('SELECT state FROM registration_state WHERE id=1').first();
-    const member = JSON.parse(row.state).members.find(member => member.id === account.member_id && !member.removed);
-    if (!member) return reply({ error: '登入失敗，請確認登入代號。' }, 401);
-    return reply({ user: { uid: member.id, number: member.number, code } }, 200, await createSession(db, member.id, code));
+    if (data?.action === 'session') {
+      const { session, cookie } = await readSession(request, env);
+      if (!session) return reply({ user: null }, 200, cookie);
+      const { state } = await openCatalog(env);
+      const member = activeMember(state, session.uid);
+      return member ? reply({ user: publicAccount(member, session.code) }, 200, cookie) :
+        reply({ user: null }, 200, clearSession());
+    }
+    const signup = data?.action === 'signup';
+    if (!signup && data?.action !== 'login') return reply({ error: '未知的操作。' }, 400);
+    const code = normalizeCode(data.code);
+    if (!code) return reply({ error: '登入代號可用中英文、數字及 . _ -，須 6 至 40 字元。' }, 400);
+    const session = await authenticate(env, code, signup);
+    // Login also completes enrollment if Firebase Auth signup succeeded before a Firestore interruption.
+    const member = await enroll(env, session.uid);
+    if (!member) return reply({ error: '此帳號已從會員名冊移除。' }, 403, clearSession());
+    return reply({ user: publicAccount(member, code) }, 200, await sessionCookie(env, session));
   } catch (error) {
-    if (data.action === 'signup' && String(error.message).includes('UNIQUE constraint failed: login_accounts.code_hash')) {
-      return duplicateCode();
+    if (error.authError === 'EMAIL_EXISTS') return reply({ error: '此登入代號已被註冊，請改用另一個代號。若為你的帳號，請直接登入。' }, 409);
+    if (['INVALID_LOGIN_CREDENTIALS', 'INVALID_PASSWORD', 'EMAIL_NOT_FOUND', 'USER_DISABLED'].includes(error.authError)) {
+      return reply({ error: '登入失敗，請確認登入代號。' }, 401);
     }
+    if (error.authStatus === 429 || error.authError === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
+      return reply({ error: '登入操作過於頻繁，請稍後再試。' }, 429);
+    }
+    if (error.status) return reply({ error: error.message }, error.status);
     return reply({ error: '目前無法完成登入操作，請稍後重試。' }, 503);
   }
 }

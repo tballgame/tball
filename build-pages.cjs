@@ -5,5 +5,4 @@ const output = path.join(__dirname, 'pages-dist');
 fs.mkdirSync(output, { recursive: true });
 fs.copyFileSync(path.join(__dirname, 'cloud.html'), path.join(output, 'index.html'));
 fs.copyFileSync(path.join(__dirname, 'cloud-app.js'), path.join(output, 'cloud-app.js'));
-fs.copyFileSync(path.join(__dirname, 'account.mjs'), path.join(output, 'account.mjs'));
 fs.copyFileSync(path.join(__dirname, 'guide.html'), path.join(output, 'guide.html'));

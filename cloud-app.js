@@ -570,15 +570,22 @@ function dashboard(view, announcement, message) {
   const members = view.organizer ? '<section data-panel="members"' +
     (dashboardPanel === 'members' ? '' : ' hidden') + '><h2>全站會員名冊</h2>' +
     '<p>共 ' + view.members.length + ' 位會員。</p>' +
+    (dashboardPanel === 'members' && message ? '<p id="member-feedback" role="status" tabindex="-1">' + esc(message) + '</p>' : '') +
     form('addMember', '<label>會員名稱 <input name="name" maxlength="40" required></label><button>新增會員</button><p role="alert"></p>') +
     '<label>搜尋會員 <input id="member-search" type="search"></label><ul>' +
-    view.members.map(member => '<li data-member="' + esc(member.name.toLowerCase()) + '"><details><summary>' +
+    view.members.map(member => '<li data-member="' + esc(member.name.toLowerCase()) + '"><div class="member-row"><details><summary>' +
       esc(member.number ?? '') + ' · ' + esc(member.name) + (member.demo ? '（測試）' : member.manual ? '（名冊會員）' : '') +
+      (member.organizer ? ' <span class="member-role">大會管理員</span>' : '') +
       ' · ' + member.history.length + ' 場參賽</summary>' +
       (member.history.length ? member.history.map(event => eventLink(event.id, event.title)).join(' ') :
-        '<p>目前沒有參賽紀錄。</p>') + form('removeMember', '<input type="hidden" name="memberId" value="' +
-        esc(member.id) + '"><button>移除 ' + esc(member.name) + '</button><p role="alert"></p>') +
-      '</details></li>').join('') + '</ul></section>' : '';
+      '<p>目前沒有參賽紀錄。</p>') + '</details>' +
+      (member.number && !member.manual && !member.demo ? form('issueMemberReset',
+        '<input type="hidden" name="memberId" value="' + esc(member.id) +
+        '"><button data-reset-member="' + esc(member.number) + '">重設登入代號</button><p role="alert"></p>') : '') +
+      (member.organizer ? '' : form('removeMember', '<input type="hidden" name="memberId" value="' +
+        esc(member.id) + '"><button class="remove-match" aria-label="刪除 ' + esc(member.name) +
+        '" data-member-name="' + esc(member.name) + '">刪除</button><p role="alert"></p>')) +
+      '</div></li>').join('') + '</ul></section>' : '';
   return '<nav aria-label="賽事分區">' + tabs.map(([key, label]) => '<button type="button" data-panel-tab="' +
     key + '" aria-pressed="' + (key === dashboardPanel) + '">' + label + '</button>').join(' ') + '</nav>' + sections + members;
 }
@@ -720,7 +727,9 @@ async function send(data, submittedForm) {
     }
     accountUi(view.organizer);
     const deleted = data.action === 'deleteArchivedEvent';
+    const removedMember = data.action === 'removeMember';
     const message = deleted ? '已刪除賽事及其完賽紀錄。' :
+      removedMember ? '已從全站會員名冊刪除。' :
       data.action === 'replaceCaptain' ? captainChangeMessage :
       data.action === 'reopenEvent' ? reopenedEventMessage :
         Object.hasOwn(teamActions, data.action) ? teamActions[data.action] : '';
@@ -748,6 +757,7 @@ async function send(data, submittedForm) {
       stageFeedback.focus();
     }
     if (message) screen.querySelector(deleted ? '#archive-feedback' :
+      removedMember ? '#member-feedback' :
       data.action === 'replaceCaptain' ? '#captain-feedback' :
         data.action === 'reopenEvent' ? '#reopen-feedback' : '#team-feedback')?.focus();
   } catch {
@@ -776,6 +786,53 @@ async function accountRequest(data) {
   const body = await response.json();
   if (!response.ok) throw Error(body.error || '無法完成登入操作。');
   return body;
+}
+
+async function showResetLink(form, memberId) {
+  const button = form.querySelector('button');
+  const feedback = form.querySelector('[role="alert"]');
+  if (!window.confirm('為 ' + button.dataset.resetMember + ' 產生登入代號重設連結？')) return;
+  button.disabled = true;
+  feedback.replaceChildren();
+  try {
+    const { token } = await accountRequest({ action: 'issueMemberReset', memberId });
+    const link = new URL(window.location.pathname, window.location.origin);
+    link.hash = 'reset=' + token;
+    const input = document.createElement('input');
+    input.value = link.href;
+    input.readOnly = true;
+    input.setAttribute('aria-label', '一次性重設連結');
+    feedback.append('請私下交給會員，連結 30 分鐘內有效。', input);
+    input.select();
+  } catch (error) {
+    feedback.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function showResetForm(token) {
+  document.querySelector('#account').hidden = true;
+  const resetForm = document.querySelector('#reset-login');
+  resetForm.hidden = false;
+  resetForm.onsubmit = async event => {
+    event.preventDefault();
+    const button = resetForm.querySelector('button');
+    button.disabled = true;
+    status.textContent = '';
+    try {
+      await accountRequest({ action: 'redeemMemberReset', token, code: new FormData(resetForm).get('code') });
+      resetForm.reset();
+      resetForm.hidden = true;
+      document.querySelector('#account').hidden = false;
+      await changeUser(null);
+      status.textContent = '已重設登入代號，請用新代號登入。';
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  };
 }
 
 async function changeUser(current) {
@@ -889,10 +946,15 @@ screen.addEventListener('submit', event => {
   if (busy) return;
   const fields = new FormData(event.target, event.submitter);
   const action = fields.has('draft') ? 'createDraft' : event.target.dataset.action;
+  if (action === 'issueMemberReset') {
+    showResetLink(event.target, fields.get('memberId'));
+    return;
+  }
   if (action === 'archive' && !window.confirm('確定整場賽事已結束並移入完賽紀錄？若還要加賽，請取消並回流程 4。')) return;
   if (action === 'removeStageMatch' &&
       !window.confirm('確定移除「' + event.target.querySelector('[data-match-label]').dataset.matchLabel + '」？')) return;
-  if (action === 'removeMember' && !window.confirm('要從全站會員名冊移除這位會員嗎？歷史賽事仍會保留。')) return;
+  if (action === 'removeMember' && !window.confirm('確定從全站會員名冊刪除「' +
+      event.target.querySelector('[data-member-name]').dataset.memberName + '」？歷史賽事仍會保留。')) return;
   if (action === 'deleteArchivedEvent' && !window.confirm('確定刪除「' + event.target.dataset.eventLabel +
     '」？這場賽事的名單、比分和排名會一併刪除，無法從網站復原。')) return;
   if (action === 'lineup' && !confirmRepeatedStarters(event.target)) return;
@@ -987,7 +1049,11 @@ async function startBoard(eventId) {
   await poll();
 }
 
-if (boardEventId) startBoard(boardEventId);
+const resetToken = new URLSearchParams(window.location.hash.slice(1)).get('reset');
+if (resetToken) {
+  window.history.replaceState(null, '', window.location.pathname);
+  showResetForm(resetToken);
+} else if (boardEventId) startBoard(boardEventId);
 else accountRequest({ action: 'session' }).then(result => changeUser(result.user)).catch(error => {
   accountUi();
   status.textContent = error.message;

@@ -1,29 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function organizer() {
-      return request.auth != null && request.auth.uid == 'AbXcxsSaHMNmmUcQrLFeuM4o5P83';
-    }
-    function validState() {
-      return request.resource.data.keys().hasOnly(['state'])
-        && request.resource.data.state is string;
-    }
-    match /tballPrivate/registrationPilot {
-      allow get: if organizer();
-      allow create, update: if organizer() && validState();
-    }
-    match /tballPublic/registrationPilot {
-      allow get: if true;
-      allow create, update: if organizer()
-        && request.resource.data.keys().hasOnly(['title', 'signupDeadline', 'deadline', 'teamSize', 'matchFormat', 'phase'])
-        && request.resource.data.title is string && request.resource.data.title.size() <= 80
-        && request.resource.data.signupDeadline is string && request.resource.data.signupDeadline.size() == 10
-        && request.resource.data.deadline is string && request.resource.data.deadline.size() == 10
-        && request.resource.data.teamSize is int
-        && request.resource.data.matchFormat is string
-        && (request.resource.data.matchFormat in ['single-double-single', 'three-singles', 'four-singles-one-double']
-          || request.resource.data.matchFormat.matches('^[12]([12]{2}){0,4}$'))
-        && request.resource.data.phase in ['signup', 'grouping', 'locked'];
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

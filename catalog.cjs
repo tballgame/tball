@@ -51,8 +51,11 @@ function changeCatalog(state, actor, data, today) {
     return null;
   }
   if (data.action === 'removeMember') {
+    if (data.memberId === actor.uid) throw Error('請先交接大會管理權限，再刪除此會員。');
     const member = state.members.find(item => item.id === data.memberId && !item.removed);
     if (!member) throw Error('找不到這位會員。');
+    if (member.loginReset?.busyUntil > Date.now()) throw Error('此會員正在重設代號，請稍後再試。');
+    delete member.loginReset;
     member.removed = true;
     return null;
   }
@@ -162,6 +165,7 @@ function catalogView(state, actor, id) {
   const result = { organizer: actor.organizer, events };
   if (actor.organizer) result.members = state.members.filter(member => !member.removed).map(member => ({
     id: member.id, number: member.number, name: member.name, demo: member.demo, manual: member.manual,
+    organizer: member.id === actor.uid,
     history: state.events.filter(entry => entry.event.players.some(player =>
       player.memberId === member.id || player.uid === member.id)).map(entry => ({ id: entry.id, title: entry.event.title }))
   }));

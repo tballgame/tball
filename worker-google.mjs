@@ -1,4 +1,4 @@
-import { accountName, webApiKey } from './account.mjs';
+import { firebaseConfig } from './firebaseConfig.js';
 
 const keysUrl = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 const tokenUrl = 'https://oauth2.googleapis.com/token';
@@ -43,7 +43,8 @@ export async function identity(authorization, project) {
       !Number.isInteger(claims.exp) || claims.exp <= now ||
       !Number.isInteger(claims.iat) || claims.iat < 0 || claims.iat > now ||
       !Number.isInteger(claims.auth_time) || claims.auth_time < 0 || claims.auth_time > now ||
-      !accountName(claims.email) || claims.firebase?.sign_in_provider !== 'password') invalid();
+      !/^member-[a-f0-9]{40}@accounts\.tball\.invalid$/.test(claims.email || '') ||
+      claims.firebase?.sign_in_provider !== 'password') invalid();
   if (!keyCache || keyCache.until <= now) {
     const result = await fetch(keysUrl, { signal: AbortSignal.timeout(10000) });
     if (!result.ok) throw Error('Firebase public keys unavailable');
@@ -57,7 +58,7 @@ export async function identity(authorization, project) {
   }
   const publicKey = await keyCache.imported.get(h.kid);
   if (!await crypto.subtle.verify(algorithm.name, publicKey, signedBytes, encoder.encode(header + '.' + payload))) invalid();
-  const lookup = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + encodeURIComponent(webApiKey), {
+  const lookup = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + encodeURIComponent(firebaseConfig.apiKey), {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ idToken: match[0].slice(7) }), signal: AbortSignal.timeout(10000)
   });
@@ -66,7 +67,7 @@ export async function identity(authorization, project) {
   const user = (await lookup.json()).users?.find(item => item.localId === claims.sub);
   if (!user || user.disabled === true || user.email !== claims.email ||
       !/^\d+$/.test(String(user.validSince ?? '0')) || claims.auth_time < Number(user.validSince || 0)) invalid();
-  return { uid: claims.sub, name: accountName(user.email) };
+  return { uid: claims.sub, email: user.email };
 }
 
 export async function accessToken(secret, project) {
@@ -90,4 +91,3 @@ export async function accessToken(secret, project) {
   tokenCache = { secret, value: data.access_token, until: now + Math.min(3600, data.expires_in) };
   return tokenCache.value;
 }
-

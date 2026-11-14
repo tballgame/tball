@@ -86,8 +86,14 @@ nav button[aria-pressed="false"]{background:white;color:#176450}
 .roster-members form{margin:0;padding:0;border:0}
 .roster-members [role="alert"]{color:#892c1d;margin:.25rem 0 0}
 .roster-members [role="alert"]:empty{display:none}
+.member-role{display:inline-block;padding:.1rem .5rem;border-radius:.35rem;background:#fff0c2;color:#694400;font-size:.875em;font-weight:700}
+.member-row{display:flex;align-items:flex-start;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem}
+.member-row details{flex:1 1 15rem;margin:0}
+.member-row form{margin:0;padding:0;border:0}
+.member-row [role="alert"]:empty{display:none}
+.member-row input[readonly]{display:block;width:100%;margin-top:.35rem}
 </style>
-<header><h1>賽乒乓 <small>v0.6.14</small></h1><p>跨日期團體賽 · 多人試用</p><a class="guide-link" href="./guide.html">使用說明</a></header>
+<header><h1>賽乒乓 <small>v0.7.2</small></h1><p>跨日期團體賽</p><a class="guide-link" href="./guide.html">使用說明</a></header>
 <main>
   <nav id="board-toolbar" aria-label="看板操作" hidden><a href="./">返回賽事首頁</a><button type="button">切換全螢幕</button><span>每 10 秒更新</span><span id="board-updated"></span></nav>
   <section id="account" aria-label="登入"><p id="identity">連線中…</p>
@@ -96,7 +102,7 @@ nav button[aria-pressed="false"]{background:white;color:#176450}
       <button value="login">登入</button>
       <button value="signup">註冊新會員</button>
       <p>新代號可用中英文、數字及 . _ -，至少 6 字元。註冊後自動取得會員編號，報名比賽時再填參賽名稱。</p>
-      <p>登入代號就是登入憑證，請自行保管。既有會員直接輸入原帳號。</p>
+      <p>登入代號就是登入憑證，請自行保管，並避免使用容易猜到的代號。</p>
       <p>此瀏覽器會保留登入狀態。共用裝置使用完畢後請登出。</p>
     </form>
     <details id="my-account" hidden><summary>我的帳號</summary>
@@ -105,8 +111,14 @@ nav button[aria-pressed="false"]{background:white;color:#176450}
     <button id="logout" hidden>登出</button>
     <button id="refresh" hidden>重新整理賽事</button>
   </section>
+  <form id="reset-login" hidden>
+    <h2>重設登入代號</h2>
+    <label>新登入代號 <input name="code" type="password" autocomplete="new-password" required minlength="6" maxlength="40"></label>
+    <button>儲存新代號</button>
+    <a href="./">返回登入</a>
+  </form>
   <p id="status" role="alert"></p>
   <div id="screen"></div>
 </main>
-<script type="module" src="./cloud-app.js?v=0.6.14"></script>
+<script type="module" src="./cloud-app.js?v=0.7.2"></script>
 </html>

@@ -1,9 +1,9 @@
 {
-  "name": "tball-registration-pilot",
-  "version": "0.6.14",
+  "name": "tball-club",
+  "version": "0.7.2",
   "private": true,
   "scripts": {
-    "test": "node --test model.test.cjs cloud-domain.test.cjs session-auth.test.mjs",
+    "test": "node --test model.test.cjs cloud-domain.test.cjs firebase-backend.test.mjs",
     "build": "node build-pages.cjs"
   }
 }
