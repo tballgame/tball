@@ -1,3 +1,5 @@
+import { knockoutBoard } from './knockout-board.mjs';
+
 const screen = document.querySelector('#screen');
 const identity = document.querySelector('#identity');
 const status = document.querySelector('#status');
@@ -546,7 +548,9 @@ function dashboard(view, announcement, message) {
   const sections = groups.map(([key, label, events]) => '<section data-panel="' + key + '"' +
     (key === dashboardPanel ? '' : ' hidden') + '><h2>' + label + '</h2>' +
     (key === 'archive' && message ? '<p id="archive-feedback" role="status" tabindex="-1">' + esc(message) + '</p>' : '') +
-    (key === 'active' && view.organizer ? '<details><summary>建立賽事</summary>' + announcement + '</details>' : '') +
+    (key === 'active' && view.organizer ? '<details><summary>建立賽事</summary>' + announcement + '</details>' +
+      (view.canCreateSeededDemo ? form('createSeededDemo',
+        '<button>建立六隊種子測試賽</button><p role="alert"></p>') : '') : '') +
     (events.length ? '<ul>' + events.map(event => {
       const phase = event.draft ? '草稿' :
         event.fixtureCount && event.finishedCount === event.fixtureCount ? '待大會確認完賽' :
@@ -1022,6 +1026,7 @@ async function startBoard(eventId) {
           { signup: '報名中', grouping: '組隊中', locked: '對戰中' }[view.event.phase];
       const markup = '<section class="board-heading"><h2>' + esc(view.event.title) + '</h2><p>' +
         esc(state) + ' · 已完成 ' + finished + '／' + matches.length + ' 場</p></section>' +
+        knockoutBoard(view, esc) +
         '<section><h2>比賽排名</h2>' + (view.stages?.length ? stageRankings(view) : '<p>待大會產生賽程。</p>') +
         '</section><section><h2>對戰進度與比分</h2>' +
         (matches.length ? stageMatchups(view, false, true) : '<p>尚未安排對戰。</p>') + '</section>';
@@ -1030,12 +1035,13 @@ async function startBoard(eventId) {
         const key = item => item.dataset.matchId ?? (item.dataset.stagePanel ?
           'match-' + item.dataset.stagePanel : 'rank-' + item.dataset.rankingStage);
         const opened = new Map(Array.from(screen.querySelectorAll(selector), item => [key(item), item.open]));
-        const scroll = Array.from(screen.querySelectorAll('.matrix-scroll'), item => item.scrollLeft);
+        const scrollSelector = '.matrix-scroll,.bracket-scroll';
+        const scroll = Array.from(screen.querySelectorAll(scrollSelector), item => item.scrollLeft);
         screen.innerHTML = markup;
         screen.querySelectorAll(selector).forEach(item => {
           if (opened.has(key(item))) item.open = opened.get(key(item));
         });
-        screen.querySelectorAll('.matrix-scroll').forEach((item, index) => { item.scrollLeft = scroll[index] ?? 0; });
+        screen.querySelectorAll(scrollSelector).forEach((item, index) => { item.scrollLeft = scroll[index] ?? 0; });
         lastMarkup = markup;
       }
       updated.textContent = '最後更新 ' + new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });

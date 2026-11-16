@@ -342,6 +342,7 @@ function view(state, actor) {
         canRemove: actor.organizer && !automaticStageIds.has(fixture.stageId ?? 's1') && canRemoveFixture(fixture),
         groupName: fixtureGroup(groupsByStage.get(fixture.stageId ?? 's1'), fixture),
         kind: fixture.kind,
+        teamIds: fixture.teams,
         teams: fixture.teams.map(id => names.get(id)),
         submitted: fixture.teams.map(id => Boolean(fixture.lineups[id])),
         summary: fixtureResult(fixture),

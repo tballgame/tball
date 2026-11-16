@@ -22,6 +22,29 @@ small{font-size:.7em}#status{color:#892c1d}summary{cursor:pointer;font-weight:70
 .board-mode main{max-width:1600px;padding:1rem clamp(.75rem,3vw,3rem)}
 .board-mode .board-heading h2{font-size:clamp(1.6rem,3vw,2.6rem)}
 .board-mode .round-robin-matrix{font-size:clamp(1rem,1.5vw,1.5rem)}
+.knockout-board{background:#0c1a18;color:#f3f8f6;border-color:#36534c}
+.knockout-board h2{font-size:clamp(1.35rem,2.5vw,2rem);margin:0 0 .75rem}
+.bracket-scroll{overflow-x:auto;padding-bottom:.5rem}
+.bracket-grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(205px,1fr) clamp(2rem,5vw,5rem);min-width:max(100%,calc(var(--rounds) * 255px - 45px))}
+.bracket-round h3{height:32px;margin:0;padding-left:.3rem;color:#b5ccc4;font-size:1.1rem}
+.bracket-cards{height:var(--height);position:relative}
+.bracket-slot{position:absolute;top:var(--y);transform:translateY(-50%);width:100%;z-index:1}
+.bracket-wires{margin-top:32px;height:var(--height)}
+.bracket-wires svg{display:block;width:100%;height:100%;overflow:visible}
+.bracket-wires path{fill:none;stroke:#77c59b;stroke-width:2px;vector-effect:non-scaling-stroke}
+.bracket-match,.bracket-bye{border:1px solid #547369;border-radius:.7rem;background:#182e29;overflow:hidden}
+.bracket-match>small{display:block;padding:.25rem .8rem;color:#b5ccc4;border-bottom:1px solid #456057}
+.bracket-final{border-color:#d3b568}
+.bracket-team,.bracket-bye{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.3rem .8rem;font-size:clamp(1.1rem,2vw,1.6rem);line-height:1.2}
+.bracket-team span,.bracket-bye{overflow-wrap:anywhere}
+.bracket-team strong{font-variant-numeric:tabular-nums}
+.bracket-team+.bracket-team{border-top:1px solid #456057}
+.bracket-winner{background:#214a38;color:#c0f9d0;font-weight:700}
+.bracket-bye{border-style:dashed;color:#d3e4de}
+.bracket-bye small{color:#b5ccc4;white-space:nowrap;font-size:.85rem}
+.bracket-bronze,.bracket-champion{max-width:24rem}
+.bracket-champion{background:#392f1b;border:1px solid #d3b568;color:#ffe4a3;border-radius:.7rem;padding:.5rem .8rem;font-size:1.3rem}
+.bracket-next{color:#c0f9d0;margin:.25rem 0 0}
 #board-toolbar:not([hidden]){display:flex;align-items:center;flex-wrap:wrap;gap:.6rem 1rem;margin-bottom:.8rem}
 .matrix-scroll{overflow-x:auto;margin:.5rem 0 1rem}
 .round-robin-matrix{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
@@ -93,7 +116,7 @@ nav button[aria-pressed="false"]{background:white;color:#176450}
 .member-row [role="alert"]:empty{display:none}
 .member-row input[readonly]{display:block;width:100%;margin-top:.35rem}
 </style>
-<header><h1>賽乒乓 <small>v0.7.2</small></h1><p>跨日期團體賽</p><a class="guide-link" href="./guide.html">使用說明</a></header>
+<header><h1>賽乒乓 <small>v0.7.6</small></h1><p>跨日期團體賽</p><a class="guide-link" href="./guide.html">使用說明</a></header>
 <main>
   <nav id="board-toolbar" aria-label="看板操作" hidden><a href="./">返回賽事首頁</a><button type="button">切換全螢幕</button><span>每 10 秒更新</span><span id="board-updated"></span></nav>
   <section id="account" aria-label="登入"><p id="identity">連線中…</p>
@@ -120,5 +143,5 @@ nav button[aria-pressed="false"]{background:white;color:#176450}
   <p id="status" role="alert"></p>
   <div id="screen"></div>
 </main>
-<script type="module" src="./cloud-app.js?v=0.7.2"></script>
+<script type="module" src="./cloud-app.js?v=0.7.6"></script>
 </html>
