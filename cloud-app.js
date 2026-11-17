@@ -1,4 +1,4 @@
-import { knockoutBoard } from './knockout-board.mjs';
+import { knockoutBoard } from './knockout-board.mjs?v=0.7.8';
 
 const screen = document.querySelector('#screen');
 const identity = document.querySelector('#identity');

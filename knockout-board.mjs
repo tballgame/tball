@@ -28,7 +28,7 @@ function makeRounds(stages, matches) {
       cards.sort((a, b) => Math.min(...a.teamIds.map(id => order.indexOf(id))) -
         Math.min(...b.teamIds.map(id => order.indexOf(id))));
     }
-    return { name: stage.name, cards };
+    return { name: stage.name, cards, bronze: fixtures.filter(match => match.kind === 'third') };
   });
 }
 
@@ -39,10 +39,7 @@ export function knockoutGroups(stages = [], matches = []) {
     if (!run.length) return;
     const ids = new Set(run.map(stage => stage.id));
     const fixtures = matches.filter(match => ids.has(match.stageId));
-    if (fixtures.length) groups.push({
-      rounds: makeRounds(run, fixtures),
-      bronze: fixtures.filter(match => match.kind === 'third')
-    });
+    if (fixtures.length) groups.push({ rounds: makeRounds(run, fixtures) });
     run = [];
   }
   for (const stage of stages) {
@@ -85,16 +82,16 @@ export function knockoutBoard(view, esc) {
         '</strong></div>').join('') + '</div>';
   }
 
-  return '<section class="knockout-board"><h2>淘汰賽對戰樹</h2>' + groups.map(({ rounds, bronze }) => {
+  return '<section class="knockout-board"><h2>淘汰賽對戰樹</h2>' + groups.map(({ rounds }) => {
     const final = rounds.flatMap(round => round.cards).find(card => card.match?.kind === 'final');
     const latest = rounds.at(-1);
-    if (!final && !view.archived && latest.cards.some(card => card.match) &&
+    if (!final && !view.archived && !latest.bronze.length && latest.cards.some(card => card.match) &&
         latest.cards.every(card => !card.match || card.match.summary.complete)) {
-      rounds.push({ name: '下一輪', cards: [], pending: true });
+      rounds.push({ name: '下一輪', cards: [], bronze: [], pending: true });
     }
     connectRounds(rounds);
     const height = Math.max(...rounds.map(round => round.cards.length), 1) * 126 + 16;
-    for (const [index, round] of rounds.entries()) {
+    for (const round of rounds) {
       round.cards.forEach((card, slot) => {
         const evenY = (slot + 0.5) * height / round.cards.length;
         const sourceY = card.sources?.length ? card.sources.reduce((sum, source) => sum + source.y, 0) / card.sources.length : evenY;
@@ -102,23 +99,28 @@ export function knockoutBoard(view, esc) {
         card.y = Math.min(height - 63 - (round.cards.length - slot - 1) * 126, Math.max(previousY, sourceY));
       });
     }
+    const bronzeY = round => (round.cards.at(-1)?.y ?? -63) + 126;
+    const boardHeight = Math.max(height, ...rounds.filter(round => round.bronze.length)
+      .map(round => bronzeY(round) + 63));
     const columns = rounds.map((round, index) => {
       const wires = round.cards.flatMap(card => (card.sources ?? []).map(source =>
         'M0 ' + source.y + ' H50 V' + card.y + ' H100'));
       return (index ? '<div class="bracket-wires" aria-hidden="true"><svg viewBox="0 0 100 ' +
-        height + '" preserveAspectRatio="none"><path d="' + wires.join(' ') + '"/></svg></div>' : '') +
+        boardHeight + '" preserveAspectRatio="none"><path d="' + wires.join(' ') + '"/></svg></div>' : '') +
         '<div class="bracket-round"><h3>' + esc(round.name) + '</h3><div class="bracket-cards">' +
         round.cards.map(card => '<div class="bracket-slot" style="--y:' + card.y + 'px">' +
           (card.match ? matchCard(card.match, card.match.kind === 'final' ? '冠軍賽' : '') :
             '<div class="bracket-bye">' + esc(card.name) + '<small>' +
             (card.advances ? '輪空' : '本輪未排對戰') + '</small></div>') + '</div>').join('') +
-        (!round.cards.length ? '<p class="bracket-next">' + (round.pending ? '待大會排定' : '本階段待排定') + '</p>' : '') + '</div></div>';
+        round.bronze.map(match => '<div class="bracket-slot bracket-bronze" style="--y:' + bronzeY(round) + 'px">' +
+          matchCard(match, '季軍賽') + '</div>').join('') +
+        (!round.cards.length && !round.bronze.length ? '<p class="bracket-next">' +
+          (round.pending ? '待大會排定' : '本階段待排定') + '</p>' : '') + '</div></div>';
     }).join('');
     const champion = final?.advances && final.match.teams[final.match.teamIds.indexOf(final.advances)];
     return '<div class="bracket-scroll" tabindex="0" aria-label="淘汰賽晉級圖，可左右捲動">' +
-      '<div class="bracket-grid" style="--height:' + height + 'px;--rounds:' + rounds.length + '">' +
+      '<div class="bracket-grid" style="--height:' + boardHeight + 'px;--rounds:' + rounds.length + '">' +
       columns + '</div></div>' +
-      (champion ? '<p class="bracket-champion">冠軍 <strong>' + esc(champion) + '</strong></p>' : '') +
-      (bronze.length ? '<div class="bracket-bronze">' + bronze.map(match => matchCard(match, '季軍賽')).join('') + '</div>' : '');
+      (champion ? '<p class="bracket-champion">冠軍 <strong>' + esc(champion) + '</strong></p>' : '');
   }).join('') + '</section>';
 }

@@ -50,4 +50,10 @@ test('seeded demo stops after the two first-round matches and preserves its stat
   assert.deepEqual(completed.medalPlan.pairs, [
     { kind: 'final', teams: ['t3', 't5'] }, { kind: 'third', teams: ['t2', 't6'] }
   ]);
+  act('createMedalStage', { name: '冠季賽', ...completed.medalPlan });
+  const medals = catalog.catalogView(state, visitor, id);
+  const [{ rounds: medalRounds }] = knockoutGroups(medals.stages, medals.matchups);
+  assert.deepEqual(medalRounds.at(-1).bronze.map(match => match.teams), [['B 隊', 'F 隊']]);
+  const medalColumn = knockoutBoard(medals, String).split('<div class="bracket-round">').at(-1);
+  assert.match(medalColumn, /冠季賽.*冠軍賽.*C 隊.*E 隊.*bracket-bronze.*季軍賽.*B 隊.*F 隊/);
 });

@@ -42,7 +42,7 @@ small{font-size:.7em}#status{color:#892c1d}summary{cursor:pointer;font-weight:70
 .bracket-winner{background:#214a38;color:#c0f9d0;font-weight:700}
 .bracket-bye{border-style:dashed;color:#d3e4de}
 .bracket-bye small{color:#b5ccc4;white-space:nowrap;font-size:.85rem}
-.bracket-bronze,.bracket-champion{max-width:24rem}
+.bracket-champion{max-width:24rem}
 .bracket-champion{background:#392f1b;border:1px solid #d3b568;color:#ffe4a3;border-radius:.7rem;padding:.5rem .8rem;font-size:1.3rem}
 .bracket-next{color:#c0f9d0;margin:.25rem 0 0}
 #board-toolbar:not([hidden]){display:flex;align-items:center;flex-wrap:wrap;gap:.6rem 1rem;margin-bottom:.8rem}
@@ -116,7 +116,7 @@ nav button[aria-pressed="false"]{background:white;color:#176450}
 .member-row [role="alert"]:empty{display:none}
 .member-row input[readonly]{display:block;width:100%;margin-top:.35rem}
 </style>
-<header><h1>賽乒乓 <small>v0.7.7</small></h1><p>跨日期團體賽</p><a class="guide-link" href="./guide.html">使用說明</a></header>
+<header><h1>賽乒乓 <small>v0.7.8</small></h1><p>跨日期團體賽</p><a class="guide-link" href="./guide.html">使用說明</a></header>
 <main>
   <nav id="board-toolbar" aria-label="看板操作" hidden><a href="./">返回賽事首頁</a><button type="button">切換全螢幕</button><span>每 10 秒更新</span><span id="board-updated"></span></nav>
   <section id="account" aria-label="登入"><p id="identity">連線中…</p>
@@ -143,5 +143,5 @@ nav button[aria-pressed="false"]{background:white;color:#176450}
   <p id="status" role="alert"></p>
   <div id="screen"></div>
 </main>
-<script type="module" src="./cloud-app.js?v=0.7.7"></script>
+<script type="module" src="./cloud-app.js?v=0.7.8"></script>
 </html>
