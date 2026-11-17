@@ -36,13 +36,18 @@ export async function onRequestPost({ request, env }) {
         return reply({ error: '請另取公開名稱，請勿使用登入代號。' }, 400, cookie);
       }
       const today = day.format(new Date());
-      if (data.action === 'createSeededDemo' && (!template || !actor.organizer)) {
+      if (['createSeededDemo', 'finishSeededSemifinals'].includes(data.action) && (!template || !actor.organizer)) {
         return reply({ error: '此操作僅限模板站大會。' }, 403, cookie);
       }
-      const id = data.action === 'view' ? data.eventId : data.action === 'createSeededDemo'
-        ? demo.createSeededDemo(state, actor, today) : catalog.changeCatalog(state, actor, data, today);
+      let id = data.eventId;
+      if (data.action === 'createSeededDemo') id = demo.createSeededDemo(state, actor, today);
+      else if (data.action === 'finishSeededSemifinals') id = demo.finishSeededSemifinals(state, actor, id, today);
+      else if (data.action !== 'view') id = catalog.changeCatalog(state, actor, data, today);
       result = catalog.catalogView(state, actor, id);
-      if (template && actor.organizer && !id) result.canCreateSeededDemo = !demo.demoExists(state);
+      if (template && actor.organizer) {
+        if (!id) result.canCreateSeededDemo = !demo.demoExists(state);
+        else result.canSimulateSemifinals = demo.pendingSemifinals(state.events.find(entry => entry.id === id)).length > 0;
+      }
     } catch (error) {
       return reply({ error: error.message }, 409, cookie);
     }

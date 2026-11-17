@@ -37,4 +37,17 @@ test('seeded demo stops after the two first-round matches and preserves its stat
   ]);
   assert.match(knockoutBoard(second, String), /<path d="M0 [^"]+ H100"/);
   assert.equal(knockoutBoard({ ...second, stages: second.stages.map(stage => ({ ...stage, mode: 'roundRobin' })) }, String), '');
+
+  assert.throws(() => demo.finishSeededSemifinals(state, visitor, id, today), /僅限大會/);
+  assert.throws(() => demo.finishSeededSemifinals(state, owner, 'other-event', today), /沒有可模擬/);
+  demo.finishSeededSemifinals(state, owner, id, today);
+  assert.throws(() => demo.finishSeededSemifinals(state, owner, id, today), /沒有可模擬/);
+  const completed = catalog.catalogView(state, owner, id);
+  assert.equal(completed.stages.length, 2);
+  assert.equal(completed.archived, false);
+  assert.deepEqual(completed.matchups.map(match => match.summary.wins), [[1, 2], [0, 3], [1, 2], [2, 1]]);
+  assert.ok(completed.matchups.every(match => match.summary.complete));
+  assert.deepEqual(completed.medalPlan.pairs, [
+    { kind: 'final', teams: ['t3', 't5'] }, { kind: 'third', teams: ['t2', 't6'] }
+  ]);
 });

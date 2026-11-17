@@ -483,7 +483,8 @@ function organizerFlow(view, announcement, captain, message) {
     ['對戰名單', matchups?.length ? finished + '／' + matchups.length + ' 場已排點 · ' + completed + ' 場已完賽' :
       preview?.length ? '預覽 ' + preview.length + ' 場 · 待鎖定名單' : '待排賽',
       view.stages?.length ? (captain && !view.archived && view.lineups?.length ? captainLineups(view, message) : '') +
-        stageToolbar(view) + stageMatchups(view, true) :
+        stageToolbar(view) + (view.canSimulateSemifinals ? form('finishSeededSemifinals',
+          '<button>模擬四強賽比分</button><p role="alert"></p>') : '') + stageMatchups(view, true) :
         (event.phase === 'grouping' && teams.length >= 2 ? '<details><summary>設定預賽分組</summary>' +
           groupEditor('saveGroups', teams, view.groups) + '</details>' : '') +
         (preview?.length ? list(preview.map(pair => pair.join(' vs '))) : '') + scheduleAction],
