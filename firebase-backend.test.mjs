@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { onRequestPost as account } from './functions/api/account.js';
 import { onRequestPost as registration } from './functions/api/registration.js';
+import { onRequestGet as board } from './functions/api/board.js';
 import { openCatalog } from './firebase-store.mjs';
 import { readSession, sessionCookie } from './firebase-auth.mjs';
 import { firebaseConfig } from './firebaseConfig.js';
@@ -32,6 +33,62 @@ test('browser session cookie is encrypted, expires and rejects tampering', async
   assert.match((await readSession(request('account', {}, { Cookie: expired.split(';')[0] }), env)).cookie, /Max-Age=0/);
   const tampered = expired.split(';')[0] + 'tampered';
   assert.match((await readSession(request('account', {}, { Cookie: tampered }), env)).cookie, /Max-Age=0/);
+});
+
+test('public board only reads its selected event and shares only published guest results', async t => {
+  const pair = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256', modulusLength: 2048,
+    publicExponent: Uint8Array.of(1, 0, 1) }, true, ['sign', 'verify']);
+  const privateKey = Buffer.from(await crypto.subtle.exportKey('pkcs8', pair.privateKey)).toString('base64');
+  const config = { GOOGLE_SERVICE_ACCOUNT: JSON.stringify({ type: 'service_account', project_id: projectId,
+    client_email: 'test-board@' + projectId + '.iam.gserviceaccount.com', private_key: privateKey }) };
+  const id = crypto.randomUUID();
+  const draftId = crypto.randomUUID();
+  const base = 'projects/' + projectId + '/databases/(default)/documents/tballEvents/';
+  const reads = [];
+  let authorized = true;
+  let statusChecks = 0;
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (url.includes('/product_registrations/')) {
+      statusChecks++;
+      return authorized ? Response.json(enabled) : new Response(null, { status: 404 });
+    }
+    if (url.includes('oauth2.googleapis.com')) return Response.json({ access_token: 'test', expires_in: 3600 });
+    assert.ok(url.endsWith(':batchGet'));
+    const { documents } = JSON.parse(options.body);
+    assert.equal(documents.length, 1);
+    const [name] = documents;
+    assert.ok(name === base + id || name === base + draftId);
+    reads.push(name);
+    const entry = { id: name.slice(base.length), draft: name === base + draftId,
+      event: { title: '公開賽事', players: [{ uid: 'private-uid', name: 'private-name' }], teams: [] } };
+    return Response.json([{ found: { fields: { state: { stringValue: JSON.stringify(entry) } } } }]);
+  });
+  const items = new Map();
+  const cache = {
+    async match(key) { return items.get(key.url)?.clone(); },
+    async put(key, response) {
+      assert.equal(response.headers.get('Cache-Control'), 'public, max-age=10');
+      items.set(key.url, response);
+    }
+  };
+  const open = (search, headers) => board({ request: new Request(origin + '/api/board?' + search, { headers }),
+    env: config, cache });
+  const first = await open('eventId=' + id);
+  assert.equal(first.headers.get('X-Tball-Board-Cache'), 'MISS');
+  assert.equal(first.headers.get('Cache-Control'), 'no-store');
+  assert.doesNotMatch(await first.text(), /private-uid|private-name/);
+  const second = await open('unused=1&eventId=' + id, { Cookie: 'session=ignored' });
+  assert.equal(second.headers.get('X-Tball-Board-Cache'), 'HIT');
+  assert.equal((await second.json()).eventId, id);
+  assert.deepEqual(reads, [base + id]);
+  assert.equal(statusChecks, 1);
+  assert.equal((await open('eventId=' + draftId)).status, 404);
+  assert.equal((await open('eventId=invalid')).status, 404);
+  assert.equal(items.size, 1);
+  items.clear();
+  authorized = false;
+  assert.equal((await open('eventId=' + id)).status, 403);
+  assert.deepEqual(reads, [base + id, base + draftId]);
 });
 
 test('Firestore commits event changes separately and rejects a stale catalog update', async t => {

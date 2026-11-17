@@ -1,6 +1,6 @@
 {
   "name": "tball-club",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "private": true,
   "scripts": {
     "test": "node --test model.test.cjs cloud-domain.test.cjs firebase-backend.test.mjs knockout-board.test.mjs",

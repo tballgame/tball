@@ -38,10 +38,10 @@ test('seeded demo stops after the two first-round matches and preserves its stat
   assert.match(knockoutBoard(second, String), /<path d="M0 [^"]+ H100"/);
   assert.equal(knockoutBoard({ ...second, stages: second.stages.map(stage => ({ ...stage, mode: 'roundRobin' })) }, String), '');
 
-  assert.throws(() => demo.finishSeededSemifinals(state, visitor, id, today), /僅限大會/);
-  assert.throws(() => demo.finishSeededSemifinals(state, owner, 'other-event', today), /沒有可模擬/);
-  demo.finishSeededSemifinals(state, owner, id, today);
-  assert.throws(() => demo.finishSeededSemifinals(state, owner, id, today), /沒有可模擬/);
+  assert.throws(() => demo.finishSeededRound(state, visitor, id, today), /僅限大會/);
+  assert.throws(() => demo.finishSeededRound(state, owner, 'other-event', today), /沒有可模擬/);
+  demo.finishSeededRound(state, owner, id, today);
+  assert.throws(() => demo.finishSeededRound(state, owner, id, today), /沒有可模擬/);
   const completed = catalog.catalogView(state, owner, id);
   assert.equal(completed.stages.length, 2);
   assert.equal(completed.archived, false);
@@ -56,4 +56,9 @@ test('seeded demo stops after the two first-round matches and preserves its stat
   assert.deepEqual(medalRounds.at(-1).bronze.map(match => match.teams), [['B 隊', 'F 隊']]);
   const medalColumn = knockoutBoard(medals, String).split('<div class="bracket-round">').at(-1);
   assert.match(medalColumn, /冠季賽.*冠軍賽.*C 隊.*E 隊.*bracket-bronze.*季軍賽.*B 隊.*F 隊/);
+  demo.finishSeededRound(state, owner, id, today, true);
+  const final = catalog.catalogView(state, visitor, id);
+  assert.ok(final.matchups.every(match => match.summary.complete));
+  assert.deepEqual(final.placements.map(({ name, rank }) => [name, rank]),
+    [['E 隊', 1], ['C 隊', 2], ['B 隊', 3], ['F 隊', 4]]);
 });

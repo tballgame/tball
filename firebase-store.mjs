@@ -15,9 +15,9 @@ function update(name, json) {
   return { update: { name, fields: { state: { stringValue: json } } } };
 }
 
-export async function openCatalog(env) {
+async function firestore(env) {
   const token = await accessToken(env.GOOGLE_SERVICE_ACCOUNT, firebaseConfig.projectId);
-  const call = async (method, body) => {
+  return async (method, body) => {
     const response = await fetch(endpoint + ':' + method, {
       method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify(body), signal: AbortSignal.timeout(10000)
@@ -29,6 +29,16 @@ export async function openCatalog(env) {
     }
     return response.json();
   };
+}
+
+export async function readBoardEvent(env, id) {
+  const call = await firestore(env);
+  const [record] = await call('batchGet', { documents: [eventName(id)] });
+  return record.found ? JSON.parse(record.found.fields.state.stringValue) : null;
+}
+
+export async function openCatalog(env) {
+  const call = await firestore(env);
   const [record] = await call('batchGet', { documents: [manifest] });
   const document = record.found;
   const { eventIds, ...state } = document ? JSON.parse(document.fields.state.stringValue) :

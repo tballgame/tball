@@ -9,26 +9,33 @@ const semifinalScores = {
   't2,t3': [[3, 2], [1, 3], [2, 3]],
   't5,t6': [[3, 1], [2, 3], [3, 2]]
 };
+const medalScores = {
+  't3,t5': [[3, 2], [1, 3], [2, 3]],
+  't2,t6': [[3, 1], [2, 3], [3, 2]]
+};
 
 const matchupKey = fixture => fixture.teams.slice().sort().join(',');
 
-function pendingSemifinals(entry) {
+function pendingFixtures(entry, medal) {
   if (entry?.simulation !== scenario || entry.archived || !entry.tournament) return [];
   const stages = stagesOf(entry.tournament);
-  if (stages.length !== 2) return [];
-  const fixtures = stageFixtures(entry.tournament, stages[1]);
+  if (stages.length !== (medal ? 3 : 2)) return [];
+  const fixtures = stageFixtures(entry.tournament, stages.at(-1));
+  const scores = medal ? medalScores : semifinalScores;
   if (fixtures.length !== 2 || new Set(fixtures.map(matchupKey)).size !== 2 ||
-      fixtures.some(fixture => !Object.hasOwn(semifinalScores, matchupKey(fixture)) ||
-        (fixture.kind && fixture.kind !== 'regular') || fixture.points.length !== 3 || fixture.points.some(point => point.format !== 1 ||
+      fixtures.some(fixture => !Object.hasOwn(scores, matchupKey(fixture)) ||
+        (medal ? fixture.kind !== (matchupKey(fixture) === 't3,t5' ? 'final' : 'third') :
+          (fixture.kind ?? 'regular') !== 'regular') ||
+        fixture.points.length !== 3 || fixture.points.some(point => point.format !== 1 ||
           point.result?.status === 'disputed'))) return [];
   return fixtures.filter(fixture => fixture.points.some(point => !point.result));
 }
 
-function finishSeededSemifinals(state, actor, eventId, today) {
+function finishSeededRound(state, actor, eventId, today, medal = false) {
   if (!actor.organizer) throw Error('此操作僅限大會。');
   const entry = state.events.find(item => item.id === eventId);
-  const fixtures = pendingSemifinals(entry);
-  if (!fixtures.length) throw Error('目前沒有可模擬的四強賽。請重新核對場次及比分。');
+  const fixtures = pendingFixtures(entry, medal);
+  if (!fixtures.length) throw Error('目前沒有可模擬的場次。請重新核對對戰及比分。');
   for (const fixture of fixtures) {
     for (const id of fixture.teams) {
       if (fixture.lineups[id]) continue;
@@ -36,7 +43,7 @@ function finishSeededSemifinals(state, actor, eventId, today) {
       submitLineup(entry.tournament, fixture, id, team.players.slice(0, 3).map(player => [player.id]));
     }
     const key = matchupKey(fixture);
-    const scores = semifinalScores[key];
+    const scores = (medal ? medalScores : semifinalScores)[key];
     for (const [index, score] of scores.entries()) {
       if (fixture.points[index].result) continue;
       const [homeWins, awayWins] = fixture.teams.join(',') === key ? score : [score[1], score[0]];
@@ -84,4 +91,4 @@ function createSeededDemo(state, actor, today) {
   return eventId;
 }
 
-module.exports = { createSeededDemo, demoExists, finishSeededSemifinals, pendingSemifinals };
+module.exports = { createSeededDemo, demoExists, finishSeededRound, pendingFixtures };

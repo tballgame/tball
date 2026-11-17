@@ -484,7 +484,8 @@ function organizerFlow(view, announcement, captain, message) {
       preview?.length ? '預覽 ' + preview.length + ' 場 · 待鎖定名單' : '待排賽',
       view.stages?.length ? (captain && !view.archived && view.lineups?.length ? captainLineups(view, message) : '') +
         stageToolbar(view) + (view.canSimulateSemifinals ? form('finishSeededSemifinals',
-          '<button>模擬四強賽比分</button><p role="alert"></p>') : '') + stageMatchups(view, true) :
+          '<button>模擬四強賽比分</button><p role="alert"></p>') : '') + (view.canSimulateMedals ? form('finishSeededMedals',
+          '<button>模擬冠季賽比分</button><p role="alert"></p>') : '') + stageMatchups(view, true) :
         (event.phase === 'grouping' && teams.length >= 2 ? '<details><summary>設定預賽分組</summary>' +
           groupEditor('saveGroups', teams, view.groups) + '</details>' : '') +
         (preview?.length ? list(preview.map(pair => pair.join(' vs '))) : '') + scheduleAction],
@@ -1008,12 +1009,11 @@ async function startBoard(eventId) {
   let lastMarkup;
   async function poll() {
     try {
-      const response = await fetch('/api/registration', {
-        method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'view', eventId }), signal: AbortSignal.timeout(10000)
+      const response = await fetch('/api/board?eventId=' + encodeURIComponent(eventId), {
+        credentials: 'omit', signal: AbortSignal.timeout(10000)
       });
       const view = await response.json();
-      if (response.status === 403 || response.status === 503) {
+      if ([403, 404, 503].includes(response.status)) {
         screen.replaceChildren();
         lastMarkup = '';
         status.textContent = view.error || '目前無法確認球團的啟用狀態。';
@@ -1023,7 +1023,8 @@ async function startBoard(eventId) {
       const matches = view.matchups ?? [];
       const finished = matches.filter(match => match.summary.complete).length;
       const state = view.archived ? '已完賽' :
-        matches.length && finished === matches.length ? '場次已打完・待大會確認完賽' :
+        matches.length && finished === matches.length ?
+          (view.placements?.length === 4 ? '場次已打完・名次已出爐' : '目前排定的場次已打完') :
           { signup: '報名中', grouping: '組隊中', locked: '對戰中' }[view.event.phase];
       const markup = '<section class="board-heading"><h2>' + esc(view.event.title) + '</h2><p>' +
         esc(state) + ' · 已完成 ' + finished + '／' + matches.length + ' 場</p></section>' +
