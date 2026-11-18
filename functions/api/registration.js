@@ -39,7 +39,8 @@ export async function onRequestPost({ request, env }) {
       const today = day.format(new Date());
       const medal = data.action === 'finishSeededMedals';
       const simulate = medal || data.action === 'finishSeededSemifinals';
-      if ((['createSeededDemo', 'createInvitationalDemo', 'reverseInvitationalResults'].includes(data.action) || simulate) &&
+      if ((['createSeededDemo', 'createInvitationalDemo', 'reverseInvitationalResults', 'alignInvitationalResults']
+        .includes(data.action) || simulate) &&
           (!template || !actor.organizer)) {
         return reply({ error: '此操作僅限模板站大會。' }, 403, cookie);
       }
@@ -47,6 +48,7 @@ export async function onRequestPost({ request, env }) {
       if (data.action === 'createSeededDemo') id = demo.createSeededDemo(state, actor, today);
       else if (data.action === 'createInvitationalDemo') id = invitational.createInvitationalDemo(state, actor, today);
       else if (data.action === 'reverseInvitationalResults') id = invitational.reverseInvitationalResults(state, actor, id, today);
+      else if (data.action === 'alignInvitationalResults') id = invitational.alignInvitationalResults(state, actor, id, today);
       else if (simulate) id = demo.finishSeededRound(state, actor, id, today, medal);
       else if (data.action !== 'view') id = catalog.changeCatalog(state, actor, data, today);
       result = catalog.catalogView(state, actor, id);
@@ -60,7 +62,9 @@ export async function onRequestPost({ request, env }) {
           result.canSimulateSemifinals = demo.pendingFixtures(entry, false).length > 0;
           result.canSimulateMedals = demo.pendingFixtures(entry, true).length > 0;
           result.canReverseInvitationalResults = entry?.simulation === 'invitational-six-team-doubles' &&
-            !entry.simulationReversal;
+            !entry.simulationReversal && !entry.simulationCoherence;
+          result.canAlignInvitationalResults = entry?.simulation === 'invitational-six-team-doubles' &&
+            !entry.simulationCoherence;
         }
       }
     } catch (error) {

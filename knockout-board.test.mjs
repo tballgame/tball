@@ -77,6 +77,28 @@ test('the invitational plays five doubles with all 60 people and ranks each grou
   const retried = structuredClone(state);
   invitational.reverseInvitationalResults(state, owner, id, today);
   assert.deepEqual(state, retried);
+  assert.throws(() => invitational.alignInvitationalResults(state, visitor, id, today), /僅限大會/);
+  invitational.alignInvitationalResults(state, owner, id, today);
+  const aligned = state.events.find(event => event.id === id);
+  assert.equal(state.nextEventNumber, snapshot.nextEventNumber);
+  assert.deepEqual(aligned.event.players, entry.event.players);
+  assert.deepEqual(aligned.event.teams, entry.event.teams);
+  const alignedFirst = stages.stageRankings(aligned.tournament, aligned.tournament.stages[0])[0].rows;
+  assert.deepEqual(alignedFirst.map(team => team.name), ['B 隊', 'E 隊', 'A 隊', 'C 隊', 'F 隊', 'D 隊']);
+  assert.deepEqual(alignedFirst.map(team => team.won), [5, 4, 3, 2, 1, 0]);
+  const namesById = new Map(aligned.event.teams.map(team => [team.id, team.name]));
+  assert.deepEqual(aligned.tournament.stages[1].groups.map(group => group.map(id => namesById.get(id))),
+    [['B 隊', 'C 隊', 'F 隊'], ['E 隊', 'A 隊', 'D 隊']]);
+  const [alignedA, alignedB] = stages.stageRankings(aligned.tournament, aligned.tournament.stages[1]);
+  assert.deepEqual(alignedA.rows.map(team => team.name), ['B 隊', 'C 隊', 'F 隊']);
+  assert.deepEqual(alignedB.rows.map(team => team.name), ['E 隊', 'A 隊', 'D 隊']);
+  const alignedView = catalog.catalogView(state, owner, id);
+  assert.deepEqual(alignedView.placements.map(team => team.name), ['B 隊', 'E 隊', 'A 隊', 'C 隊']);
+  assert.equal(alignedView.matchups.length, 25);
+  assert.ok(alignedView.matchups.every(match => match.summary.complete));
+  const alignedSnapshot = structuredClone(state);
+  invitational.alignInvitationalResults(state, owner, id, today);
+  assert.deepEqual(state, alignedSnapshot);
 });
 
 test('seeded demo stops after the two first-round matches and preserves its state if retried', () => {

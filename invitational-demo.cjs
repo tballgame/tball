@@ -44,11 +44,26 @@ function createInvitationalDemo(state, actor, today) {
     completeTeamRoster(entry.event, captainId);
   }
   act('close');
+  playInvitationalStages(entry, act, ['t3', 't1', 't5', 't2', 't6', 't4']);
+  entry.simulation = scenario;
+  entry.simulationNotes = [
+    '此場為模擬賽，比分與排名僅供操作測試。',
+    '每隊 10 人，每場 5 點雙打，每位隊員每場出賽一次。',
+    '1 級最強。各隊每場依序配對：第 1 點 1＋3 級、第 2 點 7＋9 級、第 3 點 4＋6 級、第 4 點 2＋5 級、第 5 點 8＋10 級。',
+    '第一階段六隊單循環 15 場，按本階段團體勝場與勝點排名。',
+    '第二階段依第一階段名次分組，A 組為第 1、4、5 名，B 組為第 2、3、6 名。各組重新計分，各打 3 場。',
+    '各組前二交叉淘汰，A 組第一對 B 組第二、B 組第一對 A 組第二。勝隊爭冠，敗隊爭季軍。'
+  ];
+  state.events = draft.events;
+  state.nextEventNumber = draft.nextEventNumber;
+  return eventId;
+}
+
+function playInvitationalStages(entry, act, strengthOrder) {
   act('lock');
   entry.tournament.stages[0].name = '六隊單循環';
 
   // These strengths generate sample scores only, with a unique ranking for each group.
-  const strengthOrder = ['t3', 't1', 't5', 't2', 't6', 't4'];
   const strength = new Map(strengthOrder.map((id, index) => [id, index]));
   function completeStage(stage) {
     for (const [matchIndex, fixture] of stageFixtures(entry.tournament, stage).entries()) {
@@ -59,7 +74,8 @@ function createInvitationalDemo(state, actor, today) {
         submitLineup(entry.tournament, fixture, teamId, lineup);
       }
       const winnerSide = strength.get(fixture.teams[0]) < strength.get(fixture.teams[1]) ? 0 : 1;
-      const winningPoints = (matchIndex + Number(stage.id.slice(1))) % 2 === 0 ? 4 : 3;
+      const gap = Math.abs(strength.get(fixture.teams[0]) - strength.get(fixture.teams[1]));
+      const winningPoints = Math.min(5, 3 + Math.floor(gap / 2));
       for (let point = 0; point < 5; point++) {
         const pointWinner = (point + matchIndex) % 5 < winningPoints ? winnerSide : 1 - winnerSide;
         const score = [0, 0];
@@ -90,18 +106,6 @@ function createInvitationalDemo(state, actor, today) {
   act('createMedalStage', { name: '冠季賽', ...medalPlan(entry.tournament) });
   completeStage(entry.tournament.stages.at(-1));
 
-  entry.simulation = scenario;
-  entry.simulationNotes = [
-    '此場為模擬賽，比分與排名僅供操作測試。',
-    '每隊 10 人，每場 5 點雙打，每位隊員每場出賽一次。',
-    '1 級最強。各隊每場依序配對：第 1 點 1＋3 級、第 2 點 7＋9 級、第 3 點 4＋6 級、第 4 點 2＋5 級、第 5 點 8＋10 級。',
-    '第一階段六隊單循環 15 場，按本階段團體勝場與勝點排名。',
-    '第二階段依第一階段名次分組，A 組為第 1、4、5 名，B 組為第 2、3、6 名。各組重新計分，各打 3 場。',
-    '各組前二交叉淘汰，A 組第一對 B 組第二、B 組第一對 A 組第二。勝隊爭冠，敗隊爭季軍。'
-  ];
-  state.events = draft.events;
-  state.nextEventNumber = draft.nextEventNumber;
-  return eventId;
 }
 
 function reverseInvitationalResults(state, actor, eventId, today) {
@@ -155,4 +159,29 @@ function reverseInvitationalResults(state, actor, eventId, today) {
   return eventId;
 }
 
-module.exports = { createInvitationalDemo, exists, rosters, gradePairs, reverseInvitationalResults };
+function alignInvitationalResults(state, actor, eventId, today) {
+  if (!actor.organizer) throw Error('此操作僅限大會。');
+  const previous = state.events.find(entry => entry.id === eventId && entry.simulation === scenario);
+  if (!previous) throw Error('找不到這場會內模擬賽。');
+  if (previous.simulationCoherence) return eventId;
+  if (previous.event.matchFormat !== '22222' || previous.tournament?.stages.length !== 4 ||
+      previous.event.teams.length !== 6 || previous.event.teams.some(team => team.playerIds.length !== 10)) {
+    throw Error('賽制或隊伍已變更，請先核對此模擬賽。');
+  }
+  const draft = structuredClone(state);
+  const entry = draft.events.find(item => item.id === eventId);
+  const act = (action, fields = {}) => changeCatalog(draft, actor, { action, eventId, ...fields }, today);
+  if (previous.archived) act('reopenEvent');
+  entry.event.phase = 'grouping';
+  delete entry.event.groups;
+  playInvitationalStages(entry, act, ['t2', 't5', 't1', 't3', 't6', 't4']);
+  entry.simulationCoherence = { updatedOn: today, order: ['B 隊', 'E 隊', 'A 隊', 'C 隊', 'F 隊', 'D 隊'] };
+  entry.simulationNotes = previous.simulationNotes.slice(0, 6).concat(
+    '全程依 B、E、A、C、F、D 的模擬強弱設定產生比分，相近隊伍多為 3：2，差距較大為 4：1 或 5：0。'
+  );
+  if (previous.archived) act('archive');
+  state.events = draft.events;
+  return eventId;
+}
+
+module.exports = { createInvitationalDemo, exists, rosters, gradePairs, reverseInvitationalResults, alignInvitationalResults };
