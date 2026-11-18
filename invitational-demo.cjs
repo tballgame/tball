@@ -5,6 +5,7 @@ const { stageRankings, stageFixtures, medalPlan } = require('./stages.cjs');
 
 const scenario = 'invitational-six-team-doubles';
 const title = '115 年第三次會內賽（六隊雙打模擬）';
+const gradePairs = [[1, 3], [7, 9], [4, 6], [2, 5], [8, 10]];
 const rosters = [
   ['王德山', '黃文良', '蘇木斌', '王碧如', '江明炎', '汪一家', '歐崑琅', '朱榮瑞', '鄭錦隆', '陳威靚'],
   ['黃太郎', '程麗君', '吳春暉', '陳麗貞', '陳盈達', '陳進隆', '黃雅君', '周志宏', '賴美玉', '施冠汝'],
@@ -32,7 +33,11 @@ function createInvitationalDemo(state, actor, today) {
   const act = (action, fields = {}) => changeCatalog(draft, actor, { action, eventId, ...fields }, today);
 
   for (const [index, names] of rosters.entries()) {
-    const players = names.map(name => registerPlayer(entry.event, name, today, { allowDuplicateName: true }));
+    const players = names.map((name, index) => {
+      const player = registerPlayer(entry.event, name, today, { allowDuplicateName: true });
+      player.grade = index + 1;
+      return player;
+    });
     const captainId = players[0].id;
     designateCaptain(entry.event, captainId, String.fromCharCode(65 + index) + ' 隊');
     for (const player of players.slice(1)) addTeamPlayer(entry.event, captainId, player.id);
@@ -49,11 +54,8 @@ function createInvitationalDemo(state, actor, today) {
     for (const [matchIndex, fixture] of stageFixtures(entry.tournament, stage).entries()) {
       for (const teamId of fixture.teams) {
         const team = entry.tournament.teams.find(item => item.id === teamId);
-        const offset = (matchIndex * 2) % team.players.length;
-        const lineup = Array.from({ length: 5 }, (_, point) => [
-          team.players[(offset + point * 2) % 10].id,
-          team.players[(offset + point * 2 + 1) % 10].id
-        ]);
+        const playersByGrade = new Map(team.players.map(player => [player.grade, player.id]));
+        const lineup = gradePairs.map(grades => grades.map(grade => playersByGrade.get(grade)));
         submitLineup(entry.tournament, fixture, teamId, lineup);
       }
       const winnerSide = strength.get(fixture.teams[0]) < strength.get(fixture.teams[1]) ? 0 : 1;
@@ -92,6 +94,7 @@ function createInvitationalDemo(state, actor, today) {
   entry.simulationNotes = [
     '此場為模擬賽，比分與排名僅供操作測試。',
     '每隊 10 人，每場 5 點雙打，每位隊員每場出賽一次。',
+    '1 級最強。各隊每場依序配對：第 1 點 1＋3 級、第 2 點 7＋9 級、第 3 點 4＋6 級、第 4 點 2＋5 級、第 5 點 8＋10 級。',
     '第一階段六隊單循環 15 場，按本階段團體勝場與勝點排名。',
     '第二階段依第一階段名次分組，A 組為第 1、4、5 名，B 組為第 2、3、6 名。各組重新計分，各打 3 場。',
     '各組前二交叉淘汰，A 組第一對 B 組第二、B 組第一對 A 組第二。勝隊爭冠，敗隊爭季軍。'
@@ -101,4 +104,4 @@ function createInvitationalDemo(state, actor, today) {
   return eventId;
 }
 
-module.exports = { createInvitationalDemo, exists, rosters };
+module.exports = { createInvitationalDemo, exists, rosters, gradePairs };

@@ -22,7 +22,9 @@ const nextAction = (label, highlight = true) => highlight
 const workflowNotice = (status, title, text) => '<div class="workflow-notice workflow-' + status +
   '"><strong>' + esc(title) + '</strong><p>' + esc(text) + '</p></div>';
 const list = items => '<ul>' + items.map(item => '<li>' + esc(item) + '</li>').join('') + '</ul>';
-const playerLabel = ({ name, memberNumber }) => name + (memberNumber ? '（' + memberNumber + '）' : '');
+const playerLabel = ({ name, memberNumber, grade }) => name +
+  (Number.isInteger(grade) && grade > 0 ? '（' + grade + ' 級）' : '') +
+  (memberNumber ? '（' + memberNumber + '）' : '');
 const options = players => players.map(item => '<option value="' + esc(item.id) + '">' + esc(playerLabel(item)) + '</option>').join('');
 const checkboxes = (items, field) => items.map(item => '<label><input type="checkbox" name="' +
   field + '" value="' + esc(item.id) + '"' + (item.assigned ? ' disabled' : '') + '> ' +
@@ -364,10 +366,10 @@ function teamRosterStatus(team, event) {
 function rosterList(members, captainId, canRemove = false) {
   const captain = members.find(member => member.id === captainId);
   const rows = members.filter(member => member.id !== captainId).map(member =>
-    '<li><span>' + esc(member.name) + '</span>' + (canRemove ? form('remove',
+    '<li><span>' + esc(playerLabel(member)) + '</span>' + (canRemove ? form('remove',
       '<input type="hidden" name="player" value="' + esc(member.id) + '">' +
       '<button aria-label="移除隊員 ' + esc(member.name) + '">移除隊員</button><p role="alert"></p>') : '') + '</li>').join('');
-  return '<div class="team-roster"><p class="roster-captain"><strong>隊長</strong> ' + esc(captain?.name ?? '未指定') +
+  return '<div class="team-roster"><p class="roster-captain"><strong>隊長</strong> ' + esc(captain ? playerLabel(captain) : '未指定') +
     '</p><div class="roster-members"><strong>隊員</strong>' +
     (rows ? '<ul role="list">' + rows + '</ul>' : '<p>尚無隊員。</p>') + '</div></div>';
 }
@@ -1031,7 +1033,7 @@ async function startBoard(eventId) {
       const markup = '<section class="board-heading"><h2>' + esc(view.event.title) + '</h2><p>' +
         esc(state) + ' · 已完成 ' + finished + '／' + matches.length + ' 場</p></section>' +
         (view.simulationNotes ? '<section><details><summary>模擬賽設定與分組方式</summary>' +
-          list(view.simulationNotes.map(esc)) + '</details></section>' : '') +
+          list(view.simulationNotes) + '</details></section>' : '') +
         knockoutBoard(view, esc) +
         '<section><h2>比賽排名</h2>' + (view.stages?.length ? stageRankings(view) : '<p>待大會產生賽程。</p>') +
         '</section><section><h2>對戰進度與比分</h2>' +

@@ -279,11 +279,14 @@ function view(state, actor) {
     ...(state.event.groups?.length > 1 && state.event.preferredSchedule !== 'manual' ?
       { groupCount: state.event.groups.length } : {}),
     ...(state.event.preferredSchedule === 'manual' ? { preferredSchedule: 'manual' } : {}) };
-  const visiblePlayer = ({ id, name }) => ({ id, name });
+  const visiblePlayer = ({ id, name, grade }) => ({ id, name,
+    ...(Number.isInteger(grade) && grade > 0 ? { grade } : {}) });
   const memberNumbers = new Map((state.members ?? []).map(member => [member.id, member.number]));
   const memberNumber = ({ memberId, uid }) => memberNumbers.get(memberId) ?? memberNumbers.get(uid) ?? null;
   if (actor.organizer || actor.uid) {
-    result.registeredPlayers = players.map(item => ({ name: item.name, memberNumber: memberNumber(item) }));
+    result.registeredPlayers = players.map(item => ({ name: item.name,
+      ...(Number.isInteger(item.grade) && item.grade > 0 ? { grade: item.grade } : {}),
+      memberNumber: memberNumber(item) }));
   }
   if (actor.organizer) {
     result.teams = teams;
@@ -335,7 +338,8 @@ function view(state, actor) {
     const names = new Map(teams.map(team => [team.id, team.name]));
     result.fixtures = state.tournament.fixtures.map(item => item.teams.map(id => names.get(id)));
     {
-      const playerNames = new Map(players.map(player => [player.id, player.name]));
+      const playerNames = new Map(players.map(player => [player.id, player.name +
+        (Number.isInteger(player.grade) && player.grade > 0 ? '（' + player.grade + ' 級）' : '')]));
       result.matchups = state.tournament.fixtures.map(fixture => ({
         id: fixture.id,
         stageId: fixture.stageId ?? 's1',

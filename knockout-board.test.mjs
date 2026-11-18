@@ -43,12 +43,18 @@ test('the invitational plays five doubles with all 60 people and ranks each grou
       assert.equal(selected.length, 10);
       assert.equal(new Set(selected).size, 10);
       assert.ok(selected.every(player => roster.includes(player)));
+      const players = new Map(entry.event.players.map(player => [player.id, player]));
+      assert.deepEqual(match.lineups[id].map(pair => pair.map(player => players.get(player).grade)),
+        [[1, 3], [7, 9], [4, 6], [2, 5], [8, 10]]);
     }
   }
   const view = catalog.catalogView(state, visitor, id);
   assert.equal(view.placements.length, 4);
   assert.equal(view.archived, false);
-  assert.equal(view.simulationNotes.length, 5);
+  assert.equal(view.simulationNotes.length, 6);
+  const organizerView = catalog.catalogView(state, owner, id);
+  assert.deepEqual(organizerView.matchups[0].points[0].sides[0], ['王德山（1 級）', '蘇木斌（3 級）']);
+  assert.equal(organizerView.registeredPlayers[0].grade, 1);
   assert.equal(knockoutGroups(view.stages, view.matchups)[0].rounds.length, 2);
   const snapshot = structuredClone(state);
   assert.equal(invitational.createInvitationalDemo(state, owner, today), id);
