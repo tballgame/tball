@@ -59,6 +59,24 @@ test('the invitational plays five doubles with all 60 people and ranks each grou
   const snapshot = structuredClone(state);
   assert.equal(invitational.createInvitationalDemo(state, owner, today), id);
   assert.deepEqual(state, snapshot);
+  assert.throws(() => invitational.reverseInvitationalResults(state, visitor, id, today), /僅限大會/);
+  invitational.reverseInvitationalResults(state, owner, id, today);
+  const reversed = catalog.catalogView(state, owner, id);
+  assert.deepEqual(reversed.placements.map(row => row.name), ['B 隊', 'E 隊', 'A 隊', 'C 隊']);
+  assert.equal(reversed.matchups.length, 25);
+  assert.ok(reversed.matchups.every(match => match.summary.complete));
+  const reversedEntry = state.events.find(event => event.id === id);
+  assert.deepEqual(reversedEntry.event, entry.event);
+  assert.deepEqual(reversedEntry.tournament.fixtures.slice(0, 21), entry.tournament.fixtures.slice(0, 21));
+  for (const match of reversedEntry.tournament.fixtures.slice(21)) {
+    for (const side of match.teams) {
+      const roster = new Map(reversedEntry.event.players.map(player => [player.id, player.grade]));
+      assert.deepEqual(match.lineups[side].map(pair => pair.map(id => roster.get(id))), invitational.gradePairs);
+    }
+  }
+  const retried = structuredClone(state);
+  invitational.reverseInvitationalResults(state, owner, id, today);
+  assert.deepEqual(state, retried);
 });
 
 test('seeded demo stops after the two first-round matches and preserves its state if retried', () => {

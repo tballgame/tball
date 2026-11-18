@@ -1,7 +1,7 @@
 const { changeCatalog } = require('./catalog.cjs');
 const { registerPlayer, designateCaptain, addTeamPlayer, completeTeamRoster } = require('./registration.js');
 const { submitLineup } = require('./model.js');
-const { stageRankings, stageFixtures, medalPlan } = require('./stages.cjs');
+const { stageRankings, stageFixtures, medalPlan, placements } = require('./stages.cjs');
 
 const scenario = 'invitational-six-team-doubles';
 const title = '115 年第三次會內賽（六隊雙打模擬）';
@@ -104,4 +104,55 @@ function createInvitationalDemo(state, actor, today) {
   return eventId;
 }
 
-module.exports = { createInvitationalDemo, exists, rosters, gradePairs };
+function reverseInvitationalResults(state, actor, eventId, today) {
+  if (!actor.organizer) throw Error('此操作僅限大會。');
+  const previous = state.events.find(entry => entry.id === eventId && entry.simulation === scenario);
+  if (!previous) throw Error('找不到這場會內模擬賽。');
+  if (previous.simulationReversal) return eventId;
+  const tournament = previous.tournament;
+  const [semifinals, medals] = tournament.stages.slice(-2);
+  const previousPlacements = placements(tournament);
+  if (tournament.stages.length !== 4 || semifinals.name !== '四強賽' || medals.name !== '冠季賽' ||
+      JSON.stringify(previousPlacements.map(row => row.name)) !== JSON.stringify(['C 隊', 'A 隊', 'E 隊', 'B 隊'])) {
+    throw Error('賽事已變更，請先核對目前名次。');
+  }
+  const draft = structuredClone(state);
+  const entry = draft.events.find(item => item.id === eventId);
+  const act = (action, fields = {}) => changeCatalog(draft, actor, { action, eventId, ...fields }, today);
+  if (previous.archived) act('reopenEvent');
+
+  const oldMedals = stageFixtures(entry.tournament, medals);
+  entry.tournament.fixtures = entry.tournament.fixtures.filter(match => !oldMedals.includes(match));
+  entry.tournament.stages.pop();
+  for (const fixture of stageFixtures(entry.tournament, semifinals)) {
+    for (const [index, point] of fixture.points.entries()) {
+      const [home, away] = point.result.score;
+      act('score', { fixture: fixture.id, point: String(index), home: String(away), away: String(home) });
+    }
+  }
+  act('createMedalStage', { name: medals.name, ...medalPlan(entry.tournament) });
+  for (const fixture of stageFixtures(entry.tournament, entry.tournament.stages.at(-1))) {
+    const desiredWinner = fixture.kind === 'final' ? 't2' : 't1';
+    const winnerSide = fixture.teams.indexOf(desiredWinner);
+    if (winnerSide < 0) throw Error('反轉後的冠季賽隊伍不符，請核對四強結果。');
+    for (const teamId of fixture.teams) {
+      const team = entry.tournament.teams.find(item => item.id === teamId);
+      const playersByGrade = new Map(team.players.map(player => [player.grade, player.id]));
+      submitLineup(entry.tournament, fixture, teamId, gradePairs.map(pair => pair.map(grade => playersByGrade.get(grade))));
+    }
+    for (let point = 0; point < 5; point++) {
+      const pointWinner = point < 3 ? winnerSide : 1 - winnerSide;
+      const score = [0, 0];
+      score[pointWinner] = 3;
+      score[1 - pointWinner] = point % 3;
+      act('score', { fixture: fixture.id, point: String(point), home: String(score[0]), away: String(score[1]) });
+    }
+  }
+  entry.simulationReversal = { previousPlacements, reversedOn: today };
+  entry.simulationNotes.push('淘汰賽比分已反轉模擬，前四名依序為 B 隊、E 隊、A 隊、C 隊。');
+  if (previous.archived) act('archive');
+  state.events = draft.events;
+  return eventId;
+}
+
+module.exports = { createInvitationalDemo, exists, rosters, gradePairs, reverseInvitationalResults };

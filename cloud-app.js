@@ -487,7 +487,9 @@ function organizerFlow(view, announcement, captain, message) {
       view.stages?.length ? (captain && !view.archived && view.lineups?.length ? captainLineups(view, message) : '') +
         stageToolbar(view) + (view.canSimulateSemifinals ? form('finishSeededSemifinals',
           '<button>模擬四強賽比分</button><p role="alert"></p>') : '') + (view.canSimulateMedals ? form('finishSeededMedals',
-          '<button>模擬冠季賽比分</button><p role="alert"></p>') : '') + stageMatchups(view, true) :
+          '<button>模擬冠季賽比分</button><p role="alert"></p>') : '') +
+          (view.canReverseInvitationalResults ? form('reverseInvitationalResults',
+            '<button>反轉模擬賽前四名</button><p role="alert"></p>') : '') + stageMatchups(view, true) :
         (event.phase === 'grouping' && teams.length >= 2 ? '<details><summary>設定預賽分組</summary>' +
           groupEditor('saveGroups', teams, view.groups) + '</details>' : '') +
         (preview?.length ? list(preview.map(pair => pair.join(' vs '))) : '') + scheduleAction],

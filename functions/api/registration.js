@@ -39,12 +39,14 @@ export async function onRequestPost({ request, env }) {
       const today = day.format(new Date());
       const medal = data.action === 'finishSeededMedals';
       const simulate = medal || data.action === 'finishSeededSemifinals';
-      if ((['createSeededDemo', 'createInvitationalDemo'].includes(data.action) || simulate) && (!template || !actor.organizer)) {
+      if ((['createSeededDemo', 'createInvitationalDemo', 'reverseInvitationalResults'].includes(data.action) || simulate) &&
+          (!template || !actor.organizer)) {
         return reply({ error: '此操作僅限模板站大會。' }, 403, cookie);
       }
       let id = data.eventId;
       if (data.action === 'createSeededDemo') id = demo.createSeededDemo(state, actor, today);
       else if (data.action === 'createInvitationalDemo') id = invitational.createInvitationalDemo(state, actor, today);
+      else if (data.action === 'reverseInvitationalResults') id = invitational.reverseInvitationalResults(state, actor, id, today);
       else if (simulate) id = demo.finishSeededRound(state, actor, id, today, medal);
       else if (data.action !== 'view') id = catalog.changeCatalog(state, actor, data, today);
       result = catalog.catalogView(state, actor, id);
@@ -57,6 +59,8 @@ export async function onRequestPost({ request, env }) {
           const entry = state.events.find(item => item.id === id);
           result.canSimulateSemifinals = demo.pendingFixtures(entry, false).length > 0;
           result.canSimulateMedals = demo.pendingFixtures(entry, true).length > 0;
+          result.canReverseInvitationalResults = entry?.simulation === 'invitational-six-team-doubles' &&
+            !entry.simulationReversal;
         }
       }
     } catch (error) {
