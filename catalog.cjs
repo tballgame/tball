@@ -138,6 +138,7 @@ function catalogView(state, actor, id) {
       }
     }
     return { ...result, eventId: entry.id, eventNumber: entry.number,
+      ...(entry.simulationNotes ? { simulationNotes: entry.simulationNotes } : {}),
       openedOn: entry.openedOn ?? null, draft: Boolean(entry.draft), archived: Boolean(entry.archived) };
   }
   const events = state.events.filter(entry => actor.organizer || !entry.draft).map(entry => {

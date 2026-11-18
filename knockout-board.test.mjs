@@ -2,11 +2,58 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import catalog from './catalog.cjs';
 import demo from './seeded-demo.cjs';
+import invitational from './invitational-demo.cjs';
+import stages from './stages.cjs';
 import { knockoutBoard, knockoutGroups } from './knockout-board.mjs';
 
 const owner = { uid: 'organizer', organizer: true };
 const visitor = { organizer: false };
 const today = '2026-11-16';
+
+test('the invitational plays five doubles with all 60 people and ranks each group separately before crossovers', () => {
+  const state = { members: [{ id: 'existing-member' }], events: [], nextEventNumber: 1 };
+  const previousId = demo.createSeededDemo(state, owner, today);
+  const original = structuredClone(state);
+  assert.throws(() => invitational.createInvitationalDemo(state, visitor, today), /僅限大會/);
+  assert.deepEqual(state, original);
+  const id = invitational.createInvitationalDemo(state, owner, today);
+  const entry = state.events.find(event => event.id === id);
+  assert.deepEqual(state.events.find(event => event.id === previousId), original.events[0]);
+  assert.deepEqual(state.members, original.members);
+  assert.equal(entry.event.players.length, 60);
+  assert.equal(entry.event.matchFormat, '22222');
+  assert.ok(entry.event.teams.every(team => team.playerIds.length === 10 && team.rosterComplete));
+  assert.deepEqual(entry.event.teams.map(team => team.playerIds.map(id =>
+    entry.event.players.find(player => player.id === id).name)), invitational.rosters);
+  assert.deepEqual(entry.tournament.stages.map(stage => stages.stageFixtures(entry.tournament, stage).length), [15, 6, 2, 2]);
+  const firstRanking = stages.stageRankings(entry.tournament, entry.tournament.stages[0])[0].rows;
+  const ranks = new Map(firstRanking.map((team, index) => [team.id, index + 1]));
+  assert.deepEqual(entry.tournament.stages[1].groups.map(group => group.map(id => ranks.get(id))),
+    [[1, 4, 5], [2, 3, 6]]);
+  const [a, b] = stages.stageRankings(entry.tournament, entry.tournament.stages[1]);
+  assert.ok([a, b].every(group => group.finished === 3 && group.rows.every(row => row.won + row.lost === 2)));
+  assert.deepEqual(stages.stageFixtures(entry.tournament, entry.tournament.stages[2]).map(match => match.teams),
+    [[a.rows[0].id, b.rows[1].id], [b.rows[0].id, a.rows[1].id]]);
+  for (const match of entry.tournament.fixtures) {
+    assert.equal(match.points.length, 5);
+    assert.ok(match.points.every(point => point.format === 2 && point.result.status === 'confirmed'));
+    for (const id of match.teams) {
+      const selected = match.lineups[id].flat();
+      const roster = entry.event.teams.find(team => team.id === id).playerIds;
+      assert.equal(selected.length, 10);
+      assert.equal(new Set(selected).size, 10);
+      assert.ok(selected.every(player => roster.includes(player)));
+    }
+  }
+  const view = catalog.catalogView(state, visitor, id);
+  assert.equal(view.placements.length, 4);
+  assert.equal(view.archived, false);
+  assert.equal(view.simulationNotes.length, 5);
+  assert.equal(knockoutGroups(view.stages, view.matchups)[0].rounds.length, 2);
+  const snapshot = structuredClone(state);
+  assert.equal(invitational.createInvitationalDemo(state, owner, today), id);
+  assert.deepEqual(state, snapshot);
+});
 
 test('seeded demo stops after the two first-round matches and preserves its state if retried', () => {
   const state = { members: [], events: [], nextEventNumber: 1 };

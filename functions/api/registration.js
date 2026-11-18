@@ -1,5 +1,6 @@
 import catalog from '../../catalog.cjs';
 import demo from '../../seeded-demo.cjs';
+import invitational from '../../invitational-demo.cjs';
 import { readSession, clearSession } from '../../firebase-auth.mjs';
 import { activeMember, openCatalog } from '../../firebase-store.mjs';
 import { clubAvailability } from '../../club-access.mjs';
@@ -38,16 +39,20 @@ export async function onRequestPost({ request, env }) {
       const today = day.format(new Date());
       const medal = data.action === 'finishSeededMedals';
       const simulate = medal || data.action === 'finishSeededSemifinals';
-      if ((data.action === 'createSeededDemo' || simulate) && (!template || !actor.organizer)) {
+      if ((['createSeededDemo', 'createInvitationalDemo'].includes(data.action) || simulate) && (!template || !actor.organizer)) {
         return reply({ error: '此操作僅限模板站大會。' }, 403, cookie);
       }
       let id = data.eventId;
       if (data.action === 'createSeededDemo') id = demo.createSeededDemo(state, actor, today);
+      else if (data.action === 'createInvitationalDemo') id = invitational.createInvitationalDemo(state, actor, today);
       else if (simulate) id = demo.finishSeededRound(state, actor, id, today, medal);
       else if (data.action !== 'view') id = catalog.changeCatalog(state, actor, data, today);
       result = catalog.catalogView(state, actor, id);
       if (template && actor.organizer) {
-        if (!id) result.canCreateSeededDemo = !demo.demoExists(state);
+        if (!id) {
+          result.canCreateSeededDemo = !demo.demoExists(state);
+          result.canCreateInvitationalDemo = !invitational.exists(state);
+        }
         else {
           const entry = state.events.find(item => item.id === id);
           result.canSimulateSemifinals = demo.pendingFixtures(entry, false).length > 0;

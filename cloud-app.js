@@ -552,7 +552,9 @@ function dashboard(view, announcement, message) {
     (key === 'archive' && message ? '<p id="archive-feedback" role="status" tabindex="-1">' + esc(message) + '</p>' : '') +
     (key === 'active' && view.organizer ? '<details><summary>建立賽事</summary>' + announcement + '</details>' +
       (view.canCreateSeededDemo ? form('createSeededDemo',
-        '<button>建立六隊種子測試賽</button><p role="alert"></p>') : '') : '') +
+        '<button>建立六隊種子測試賽</button><p role="alert"></p>') : '') +
+      (view.canCreateInvitationalDemo ? form('createInvitationalDemo',
+        '<button>建立六隊會內賽模擬</button><p>圖片名單 60 人，5 點雙打。模擬六隊循環、平均分組循環、四強及冠季賽，共 25 場。</p><p role="alert"></p>') : '') : '') +
     (events.length ? '<ul>' + events.map(event => {
       const phase = event.draft ? '草稿' :
         event.fixtureCount && event.finishedCount === event.fixtureCount ? '待大會確認完賽' :
@@ -1028,6 +1030,8 @@ async function startBoard(eventId) {
           { signup: '報名中', grouping: '組隊中', locked: '對戰中' }[view.event.phase];
       const markup = '<section class="board-heading"><h2>' + esc(view.event.title) + '</h2><p>' +
         esc(state) + ' · 已完成 ' + finished + '／' + matches.length + ' 場</p></section>' +
+        (view.simulationNotes ? '<section><details><summary>模擬賽設定與分組方式</summary>' +
+          list(view.simulationNotes.map(esc)) + '</details></section>' : '') +
         knockoutBoard(view, esc) +
         '<section><h2>比賽排名</h2>' + (view.stages?.length ? stageRankings(view) : '<p>待大會產生賽程。</p>') +
         '</section><section><h2>對戰進度與比分</h2>' +
